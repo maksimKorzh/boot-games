@@ -1,0 +1,6 @@
+# format first 1,4 MiB of USB drive to 0s (optional)
+dd if=/dev/zero of=/dev/sdb count=2880 bs=512
+
+# write floppy image to USB drive
+(it would be boot since first sector in image is boot sector)
+sudo dd if=BOSS.img of=/dev/sdb count=2880 bs=512
