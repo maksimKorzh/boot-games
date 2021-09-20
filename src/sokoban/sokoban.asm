@@ -7,22 +7,12 @@
 %define SHELL_SEGMENT 0x800         ; shell segment
 [org 0x7c00]
 
-              ; init video mode
-start         mov ah, 0x00
-              mov al, 0x03
-              int 0x10
-
-              ; hide cursor
-              mov ah, 1
-              mov ch, 32
-              int 10h
-
               ; video memory
               mov bx, 0xb800
               mov es, bx
 
               
-game_loop:    mov di,0x0b8
+game_loop:    mov di, 0x0000
               call clear_screen
 
               mov bh, 0       ; map flag
@@ -35,6 +25,8 @@ game_loop:    mov di,0x0b8
               mov di, 0x4b8   ; print at center 548
               mov si, box
               call print_board
+              
+              xor bx, bx
               
               mov ah, 0x00
               int 0x16
@@ -51,8 +43,6 @@ game_loop:    mov di,0x0b8
               cmp ah, 0x4d
               je move_right
 
-update:       shr cx, 1
-              
                  
               jmp game_loop
 
@@ -96,26 +86,36 @@ move_right:   call clear_player
               je box_right
               jmp game_loop
 
-box_up:       call clear_box
+box_up:       ;call clear_box
+              ;xor byte [box + bx], cl
+              ;sub bx, 2
+              ;pusha
+              ;and cl, byte [box + bx]
+              ;cmp cl, 0
+              ;jne move_down
+              ;popa
+              ;and cl, byte [map + bx]
+              ;cmp cl, 0
+              ;jne move_down
+
+              call clear_box
               sub bx, 2
               or byte [box + bx], cl
               jmp game_loop
 
-box_down:     xor bx, bx
-              mov bl, byte [player_row]
-              mov cx, word [player_col]
-              shr cx, 8
-              
-              
+box_down:
+              ; 28 byte (x4 160)
+              call clear_box
+              xor byte [box + bx], cl
               add bx, 2
-              
+              pusha
               and cl, byte [box + bx]
               cmp cl, 0
               jne move_up
-              ;and cl, byte [map + bx]
-              ;cmp cl, 0
-              ;jne move_up
-              
+              popa
+              and cl, byte [map + bx]
+              cmp cl, 0
+              jne move_up
 
               call clear_box
               add bx, 2
@@ -124,13 +124,26 @@ box_down:     xor bx, bx
 
 
 
-box_right:    ;call set_player
+box_right:    call clear_box
+              xor byte [box + bx], cl
+              shr cx, 1
+              pusha
+              and cl, byte [box + bx]
+              cmp cl, 0
+              jne move_right
+              popa
+              and cl, byte [map + bx]
+              cmp cl, 0
+              jne move_left
+
+
               call clear_box
               shr cx, 1
               or byte [box + bx], cl
               jmp game_loop
 
 box_left:     call clear_box
+              
               shl cx, 1
               or byte [box + bx], cl
               jmp game_loop
@@ -151,25 +164,16 @@ hit_wall:     mov cl, 1
 hit_box:      mov dl, 1
               ret
 
-quit:         mov ah, 0x00
-              mov al, 0x03
-              int 0x10
-              jmp 0x800:0x0000
-
-clear_player: xor bx, bx
-              mov bl, byte [player_row]
+clear_player: mov bl, byte [player_row]
               and word [box + bx], 0x00ff
               ret
 
-set_player:   xor bx, bx
-              mov bl, byte [player_row]
+set_player:   mov bl, byte [player_row]
               mov cx, word [player_col]
               or word [box + bx], cx
               ret
 
-clear_box:    xor bx, bx
-              mov bl, byte [player_row]
-              mov cx, word [player_col]
+clear_box:    call set_player
               shr cx, 8
               xor byte [box + bx], cl
               ret
@@ -179,7 +183,6 @@ clear_screen: mov ax, 0x0000
               cmp di, 0xb48
               je done_clear
               jmp clear_screen
-
 done_clear:   ret
 
 print_board:
@@ -189,7 +192,8 @@ write_row:    add di, 0x90
               je end_write
               mov bl, 0x80
               mov cl, 0
-write_col:    mov dl, bl
+write_col:    push ax
+              mov dl, bl
               and dl, al
               cmp dl, 0
               jne print_wall
@@ -201,41 +205,31 @@ write_col:    mov dl, bl
               jmp write_next
 print_wall:   cmp bh, 1
               je print_box
-              push ax
               mov ax, 0xe1b2
               stosw
-              pop ax
               jmp write_next
-print_box:    cmp word [es:di], 0x0c09
-              je highlight
-              push ax
+print_box:    ;cmp word [es:di], 0x0c09
+              ;je highlight
               mov ax, 0x06fe
               stosw
-              pop ax
               jmp write_next
-highlight:    push ax
-              mov ax, 0x02fe
-              stosw
-              pop ax              
-              jmp write_next
+;highlight:    mov ax, 0x02fe
+;              stosw
+;              jmp write_next
 print_dest:   cmp bh, 1
               je print_player
-              push ax
               mov ax, 0x0c09
               stosw
-              pop ax
               jmp write_next
-print_player: push ax
-              mov ax, 0x0e01
+print_player: mov ax, 0x0e01
               stosw
-              pop ax
               jmp write_next
-write_next:   shr bl, 1
+write_next:   pop ax
+              shr bl, 1
               inc cl
               cmp cl, 8
               je write_row
               jmp write_col
-
 end_write:    ret
 
 
@@ -243,7 +237,6 @@ player_row db 0x04
 player_col dw 0x2000
 map dw 0x003e, 0x00e2, 0x4082, 0x04e2, 0x40b2, 0x08a3, 0x1281, 0x0881, 0x00ff, 0x00ee
 box dw 0x0000, 0x0000, 0x2010, 0x0008, 0x0008, 0x0000, 0x005c, 0x0000, 0x0000, 0x00ee,
-
 times 510 - ($ - $$) db 0           ; fill trailing zeros to get exactly 512 bytes long binary file
 dw 0xaa55
 
