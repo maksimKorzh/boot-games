@@ -98,22 +98,41 @@ move_right:   call clear_player
 
 box_up:       call clear_box
               sub bx, 2
-              xor byte [box + bx], cl
+              or byte [box + bx], cl
               jmp game_loop
 
-box_down:     call clear_box
+box_down:     xor bx, bx
+              mov bl, byte [player_row]
+              mov cx, word [player_col]
+              shr cx, 8
+              
+              
               add bx, 2
-              xor byte [box + bx], cl
+              
+              and cl, byte [box + bx]
+              cmp cl, 0
+              jne move_up
+              ;and cl, byte [map + bx]
+              ;cmp cl, 0
+              ;jne move_up
+              
+
+              call clear_box
+              add bx, 2
+              or byte [box + bx], cl
               jmp game_loop
 
-box_right:    call clear_box
+
+
+box_right:    ;call set_player
+              call clear_box
               shr cx, 1
-              xor byte [box + bx], cl
+              or byte [box + bx], cl
               jmp game_loop
 
 box_left:     call clear_box
               shl cx, 1
-              xor byte [box + bx], cl
+              or byte [box + bx], cl
               jmp game_loop
 
 collision:    mov cx, word [player_col]
