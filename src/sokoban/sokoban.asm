@@ -50,6 +50,8 @@ game_loop:    mov di,0x0b8
               
               cmp ah, 0x4d
               je move_right
+
+update:       shr cx, 1
               
                  
               jmp game_loop
@@ -57,45 +59,77 @@ game_loop:    mov di,0x0b8
 move_up:      call clear_player
               sub byte [player_row], 0x02
               call set_player
-              call hit_wall
+              call collision
               cmp cl, 1
               je move_down
+              cmp dl, 1
+              je box_up
               jmp game_loop
 
 move_down:    call clear_player
               add byte [player_row], 0x02
               call set_player
-              call hit_wall
+              call collision
               cmp cl, 1
               je move_up
+              cmp dl, 1
+              je box_down
               jmp game_loop
 
 move_left:    call clear_player
               shl word [player_col], 1
               call set_player
-              call hit_wall
+              call collision
               cmp cl, 1
               je move_right
+              cmp dl, 1
+              je box_left
               jmp game_loop
 
 move_right:   call clear_player
               shr word [player_col], 1
               call set_player
-              call hit_wall
+              call collision
               cmp cl, 1
               je move_left
+              cmp dl, 1
+              je box_right
               jmp game_loop
 
-hit_wall:     xor bx, bx
-              mov bl, byte [player_row]
-              mov cx, word [player_col]
+box_up:       call clear_box
+              sub bx, 2
+              xor byte [box + bx], cl
+              jmp game_loop
+
+box_down:     call clear_box
+              add bx, 2
+              xor byte [box + bx], cl
+              jmp game_loop
+
+box_right:    call clear_box
+              shr cx, 1
+              xor byte [box + bx], cl
+              jmp game_loop
+
+box_left:     call clear_box
+              shl cx, 1
+              xor byte [box + bx], cl
+              jmp game_loop
+
+collision:    mov cx, word [player_col]
               and ch, byte [map + bx]
               cmp ch, 0
-              jne true
+              jne hit_wall
               mov cl, 0
+              mov cx, word [player_col]
+              and ch, byte [box + bx]
+              cmp ch, 0
+              jne hit_box
+              mov dl, 0
               ret
-
-true:         mov cl, 1
+hit_wall:     mov cl, 1
+              ret
+hit_box:      mov dl, 1
               ret
 
 quit:         mov ah, 0x00
@@ -112,6 +146,13 @@ set_player:   xor bx, bx
               mov bl, byte [player_row]
               mov cx, word [player_col]
               or word [box + bx], cx
+              ret
+
+clear_box:    xor bx, bx
+              mov bl, byte [player_row]
+              mov cx, word [player_col]
+              shr cx, 8
+              xor byte [box + bx], cl
               ret
 
 clear_screen: mov ax, 0x0000
