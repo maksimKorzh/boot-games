@@ -3,8 +3,6 @@
 ;==========================
 
 [bits 16]                           ; tell NASM to assemble 16-bit code
-
-%define SHELL_SEGMENT 0x800         ; shell segment
 [org 0x7c00]
 
               ; video memory
@@ -30,6 +28,8 @@ game_loop:    mov di, 0x0000
               
               mov ah, 0x00
               int 0x16
+              
+              
               
               cmp ah, 0x48
               je move_up
@@ -86,13 +86,13 @@ move_right:   call clear_player
               je box_right
               jmp game_loop
 
-box_up:       ;call clear_box
-              ;xor byte [box + bx], cl
-              ;sub bx, 2
+box_up:       call clear_box
+              xor byte [box + bx], cl
+              sub bx, 2
               ;pusha
-              ;and cl, byte [box + bx]
-              ;cmp cl, 0
-              ;jne move_down
+              and cl, byte [box + bx]
+              cmp cl, 0
+              jne move_down
               ;popa
               ;and cl, byte [map + bx]
               ;cmp cl, 0
@@ -108,14 +108,14 @@ box_down:
               call clear_box
               xor byte [box + bx], cl
               add bx, 2
-              pusha
+              ;pusha
               and cl, byte [box + bx]
               cmp cl, 0
               jne move_up
-              popa
-              and cl, byte [map + bx]
-              cmp cl, 0
-              jne move_up
+              ;popa
+              ;and cl, byte [map + bx]
+              ;cmp cl, 0
+              ;jne move_up
 
               call clear_box
               add bx, 2
@@ -127,14 +127,16 @@ box_down:
 box_right:    call clear_box
               xor byte [box + bx], cl
               shr cx, 1
-              pusha
+              ;pusha
               and cl, byte [box + bx]
               cmp cl, 0
-              jne move_right
-              popa
-              and cl, byte [map + bx]
-              cmp cl, 0
               jne move_left
+              ;popa
+              
+              
+              ;and cl, byte [map + bx]
+              ;cmp cl, 0
+              ;jne move_left
 
 
               call clear_box
@@ -143,7 +145,14 @@ box_right:    call clear_box
               jmp game_loop
 
 box_left:     call clear_box
+              xor byte [box + bx], cl
+              shl cx, 1
+              ;pusha
+              and cl, byte [box + bx]
+              cmp cl, 0
+              jne move_right
               
+              call clear_box
               shl cx, 1
               or byte [box + bx], cl
               jmp game_loop
@@ -213,9 +222,9 @@ print_box:    ;cmp word [es:di], 0x0c09
               mov ax, 0x06fe
               stosw
               jmp write_next
-;highlight:    mov ax, 0x02fe
-;              stosw
-;              jmp write_next
+highlight:    ;mov ax, 0x02fe
+              ;stosw
+              ;jmp write_next
 print_dest:   cmp bh, 1
               je print_player
               mov ax, 0x0c09
