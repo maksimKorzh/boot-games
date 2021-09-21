@@ -93,10 +93,10 @@ box_up:       call clear_box
               and cl, byte [box + bx]
               cmp cl, 0
               jne move_down
-              ;popa
-              ;and cl, byte [map + bx]
-              ;cmp cl, 0
-              ;jne move_down
+              popa
+              and cl, byte [map + bx]
+              cmp cl, 0
+              jne move_down
 
               call clear_box
               sub bx, 2
@@ -108,14 +108,14 @@ box_down:
               call clear_box
               xor byte [box + bx], cl
               add bx, 2
-              ;pusha
+              pusha
               and cl, byte [box + bx]
               cmp cl, 0
               jne move_up
-              ;popa
-              ;and cl, byte [map + bx]
-              ;cmp cl, 0
-              ;jne move_up
+              popa
+              and cl, byte [map + bx]
+              cmp cl, 0
+              jne move_up
 
               call clear_box
               add bx, 2
@@ -127,16 +127,16 @@ box_down:
 box_right:    call clear_box
               xor byte [box + bx], cl
               shr cx, 1
-              ;pusha
+              pusha
               and cl, byte [box + bx]
               cmp cl, 0
               jne move_left
-              ;popa
+              popa
               
               
-              ;and cl, byte [map + bx]
-              ;cmp cl, 0
-              ;jne move_left
+              and cl, byte [map + bx]
+              cmp cl, 0
+              jne move_left
 
 
               call clear_box
@@ -147,11 +147,11 @@ box_right:    call clear_box
 box_left:     call clear_box
               xor byte [box + bx], cl
               shl cx, 1
-              ;pusha
+              pusha
               and cl, byte [box + bx]
               cmp cl, 0
               jne move_right
-              
+              popa
               call clear_box
               shl cx, 1
               or byte [box + bx], cl
@@ -217,14 +217,14 @@ print_wall:   cmp bh, 1
               mov ax, 0xe1b2
               stosw
               jmp write_next
-print_box:    ;cmp word [es:di], 0x0c09
-              ;je highlight
+print_box:    cmp word [es:di], 0x0c09
+              je highlight
               mov ax, 0x06fe
               stosw
               jmp write_next
-highlight:    ;mov ax, 0x02fe
-              ;stosw
-              ;jmp write_next
+highlight:    mov ax, 0x02fe
+              stosw
+              jmp write_next
 print_dest:   cmp bh, 1
               je print_player
               mov ax, 0x0c09

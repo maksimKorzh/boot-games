@@ -15,11 +15,12 @@ game_loop:              mov di, 0x0000                    ; point DI to top left
                         mov word [low_byte], 0x0000       ; set low byte to box graphics index
                         mov word [high_byte], 0x0002      ; set high byte to wall graphics index
                         call print_map                    ; print boxex and walls
+                        
+                        xor bx, bx
+                        
                         mov ah, 0x00                      ; BIOS code to get a keystroke
                         int 0x16                          ; wait for keystroke from a user
-                        mov byte [direction], 0x00        ; reset player direction
-                        xor bx, bx
-                        mov bl, byte [player_row]
+
                         cmp ah, 0x48                      ; on up arrow key pressed
                         je move_up                        ; move player up
                         cmp ah, 0x50                      ; on down arrow key pressed
@@ -32,106 +33,147 @@ game_loop:              mov di, 0x0000                    ; point DI to top left
 ;=========================================================================================================
 ;                                               CONTROLS
 ;=========================================================================================================
-; set direction
-; detect collisions
-; move player
-; mov box
 
-move_up:                ;or byte [direction], 0x01        ; set direction to "up"
-                        and word [player + bx], 0xff00
-                        sub byte [player_row], 0x02       ; shift bit in player col 1 step to the right
-                        sub bl, 2                         ; adjust player row look up index
-                        mov dl, byte [player_col]
-                        or byte [player + bx], dl
-                        jmp game_loop
+move_up:      call clear_player
+              sub byte [player_row], 0x02
+              call set_player
+              call collision
+              cmp cl, 1
+              je move_down
+              cmp dl, 1
+              je box_up
+              jmp game_loop
 
-move_down:              or byte [direction], 0x02         ; set direction to "down"
-                        and word [player + bx], 0xff00
-                        add byte [player_row], 0x02       ; shift bit in player col 1 step to the right
-                        add bl, 2                         ; adjust player row look up index
-                        mov dl, byte [player_col]
-                        or byte [player + bx], dl
-                        jmp game_loop
-
-move_left:              or byte [direction], 4
-                        jmp detect_collisions
-box_left:               mov cl, byte [player_col]
-                        shl cl, 2
-                        push cx
-                        and cl, dl                        ; does box hit a box?
-                        cmp cl, 0
-                        jne game_loop
-                        pop cx
-                        and cl, dh                        ; does box hit a wall?
-                        cmp cl, 0
-                        jne game_loop
-                        xor cx, cx
-                        mov ch, byte [player_col]
-                        shl ch, 1
-                        xor word [map + bx], cx
-                        shl ch, 1
-                        or word [map + bx], cx
-player_left:            and word [player + bx], 0xff00
-                        shl byte [player_col], 1          ; shift bit in player col 1 step to the right
-                        mov dl, byte [player_col]
-                        or byte [player + bx], dl
-                        jmp game_loop
+box_up:       call clear_box
+              xor word [map + bx], cx
+              sub bx, 2
+              pusha
+              and cx, word [map + bx]   ; hit anoter box
+              cmp ch, 0
+              jne move_down
+              popa
+              shr cx, 8
+              and cl, byte [map + bx]
+              cmp cl, 0
+              jne move_down
+              call clear_box
+              sub bx, 2
+              or word [map + bx], cx
+              jmp game_loop
 
 
-move_right:             or byte [direction], 8
-                        jmp detect_collisions             
-box_right:              mov cl, byte [player_col]
-                        shr cl, 2
-                        push cx
-                        and cl, dl                        ; does box hit a box?
-                        cmp cl, 0
-                        jne game_loop
-                        pop cx
-                        and cl, dh                        ; does box hit a wall?
-                        cmp cl, 0
-                        jne game_loop
-                        xor cx, cx
-                        mov ch, byte [player_col]
-                        shr ch, 1
-                        xor word [map + bx], cx
-                        shr ch, 1
-                        or word [map + bx], cx
-player_right:           and word [player + bx], 0xff00
-                        shr byte [player_col], 1          ; shift bit in player col 1 step to the right
-                        mov dl, byte [player_col]
-                        or byte [player + bx], dl
-                        jmp game_loop
+move_down:    call clear_player
+              add byte [player_row], 0x02
+              call set_player
+              call collision
+              cmp cl, 1
+              je move_up
+              cmp dl, 1
+              je box_down
+              jmp game_loop
+
+box_down:     call clear_box
+              xor word [map + bx], cx
+              add bx, 2
+              pusha
+              and cx, word [map + bx]   ; hit anoter box
+              cmp ch, 0
+              jne move_up
+              popa
+              shr cx, 8
+              and cl, byte [map + bx]
+              cmp cl, 0
+              jne move_up
+              call clear_box
+              add bx, 2
+              or word [map + bx], cx
+              jmp game_loop
 
 
-detect_collisions:      mov al, byte [direction]
-                        mov cl, byte [player_col]
-                        cmp al, 8
-                        je shift_right
-                        cmp al, 4
-                        je shift_left
-coll_cont:              mov dx, word [map + bx]
-                        push cx
-                        and cl, dl                        ; does player hit a wall?
-                        cmp cl, 0                         ; if so then skip moving
-                        jne game_loop                     ; and go back to the game loop
-                        pop cx
-                        and cl, dh                        ; does player hit a box?
-                        cmp cl, 0                         ; if so then 
-                        jne box_dir
-                        cmp al, 8
-                        je jump_right
-                        cmp al, 4
-                        je jump_left
-box_dir:                cmp al, 8
-                        je box_right
-                        cmp al, 4
-                        je box_left
-shift_right:            shr cl, 1
-                        jmp coll_cont
-shift_left:             shl cl, 1
-                        jmp coll_cont
-jump_right:             jmp player_right
-jump_left:              jmp player_left
+move_left:    call clear_player
+              shl byte [player_col], 1
+              call set_player
+              call collision
+              cmp cl, 1
+              je move_right
+              cmp dl, 1
+              je box_left
+              jmp game_loop
+
+box_left:     call clear_box
+              xor word [map + bx], cx
+              shl ch, 1
+              pusha
+              and cx, word [map + bx]   ; hit anoter box
+              cmp ch, 0
+              jne move_right
+              popa
+              shr cx, 8
+              and cl, byte [map + bx]
+              cmp cl, 0
+              jne move_right
+              call clear_box
+              shl cx, 1
+              or word [map + bx], cx
+              jmp game_loop
+
+
+move_right:   call clear_player
+              shr byte [player_col], 1
+              call set_player
+              call collision
+              cmp cl, 1
+              je move_left
+              cmp dl, 1
+              je box_right
+              jmp game_loop
+
+box_right:    call clear_box
+              xor word [map + bx], cx
+              shr ch, 1
+              pusha
+              and cx, word [map + bx]   ; hit anoter box
+              cmp ch, 0
+              jne move_left
+              popa
+              shr cx, 8
+              and cl, byte [map + bx]
+              cmp cl, 0
+              jne move_left
+              call clear_box
+              shr cx, 1
+              or word [map + bx], cx
+              jmp game_loop
+
+clear_player: mov bl, byte [player_row]
+              and byte [player + bx], 0x00
+              ret
+
+set_player:   mov bl, byte [player_row]
+              mov cl, byte [player_col]
+              or byte [player + bx], cl
+              ret
+clear_box:    call set_player
+              shl cx, 8
+              xor word [map + bx], cx
+              ret
+
+
+collision:    mov ch, byte [player_col]
+              and ch, byte [map + bx]
+              cmp ch, 0
+              jne hit_wall
+              mov cl, 0
+              mov ch, byte [player_col]
+              and cx, word [map + bx]
+              cmp ch, 0
+              jne hit_box
+              mov dl, 0
+              ret
+hit_wall:     mov cl, 1
+              ret
+hit_box:      mov dl, 1
+              ret
 
 ;=========================================================================================================
 ;                                               PRINT MAP
