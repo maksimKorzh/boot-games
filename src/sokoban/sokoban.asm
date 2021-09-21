@@ -3,24 +3,21 @@
 ;=========================================================================================================
 ;                                               MAIN LOOP
 ;=========================================================================================================
-game_loop:              mov di, 0x0000                    ; point DI to top left on screen
-                        call clear_screen                 ; clear video memory
-                        mov di, 0x04b8                    ; print DI one row below board
+game_loop:              call clear_screen                 ; clear video memory
                         mov si, player                    ; point SI to player array
                         mov word [low_byte], 0x0004       ; set low byte to box destination graphics index
                         mov word [high_byte], 0x0006      ; set high byte to player grphics index
                         call print_map                    ; print box destination tiles and player
-                        mov di, 0x04b8                    ; print DI one row below board
                         mov si, map                       ; point SI to map array
                         mov word [low_byte], 0x0000       ; set low byte to box graphics index
                         mov word [high_byte], 0x0002      ; set high byte to wall graphics index
                         call print_map                    ; print boxex and walls
-                        
+                        mov si, map
                         xor bx, bx
                         
                         mov ah, 0x00                      ; BIOS code to get a keystroke
                         int 0x16                          ; wait for keystroke from a user
-
+                        call clear_player
                         cmp ah, 0x48                      ; on up arrow key pressed
                         je move_up                        ; move player up
                         cmp ah, 0x50                      ; on down arrow key pressed
@@ -29,13 +26,16 @@ game_loop:              mov di, 0x0000                    ; point DI to top left
                         je move_left                      ; move player to the left
                         cmp ah, 0x4d                      ; on right arrow key pressed
                         je move_right                     ; move player to the right
+
+draw_box:               
+
+or word [map + bx], cx
                         jmp game_loop                     ; repeat game loop
 ;=========================================================================================================
 ;                                               CONTROLS
 ;=========================================================================================================
 
-move_up:      call clear_player
-              sub byte [player_row], 0x02
+move_up:      sub byte [player_row], 0x02
               call set_player
               call collision
               cmp cl, 1
@@ -44,11 +44,9 @@ move_up:      call clear_player
               je box_up
               jmp game_loop
 
-box_up:       call clear_box
-              xor word [map + bx], cx
-              sub bx, 2
+box_up:       sub bx, 2
               pusha
-              and cx, word [map + bx]   ; hit anoter box
+              and cx, word [si + bx]   ; hit anoter box
               cmp ch, 0
               jne move_down
               popa
@@ -58,12 +56,10 @@ box_up:       call clear_box
               jne move_down
               call clear_box
               sub bx, 2
-              or word [map + bx], cx
-              jmp game_loop
+              jmp draw_box
 
 
-move_down:    call clear_player
-              add byte [player_row], 0x02
+move_down:    add byte [player_row], 0x02
               call set_player
               call collision
               cmp cl, 1
@@ -72,26 +68,22 @@ move_down:    call clear_player
               je box_down
               jmp game_loop
 
-box_down:     call clear_box
-              xor word [map + bx], cx
-              add bx, 2
+box_down:     add bx, 2
               pusha
-              and cx, word [map + bx]   ; hit anoter box
+              and cx, word [si + bx]   ; hit anoter box
               cmp ch, 0
               jne move_up
               popa
               shr cx, 8
-              and cl, byte [map + bx]
+              and cl, byte [si + bx]
               cmp cl, 0
               jne move_up
               call clear_box
               add bx, 2
-              or word [map + bx], cx
-              jmp game_loop
+              jmp draw_box
 
 
-move_left:    call clear_player
-              shl byte [player_col], 1
+move_left:    shl byte [player_col], 1
               call set_player
               call collision
               cmp cl, 1
@@ -100,26 +92,23 @@ move_left:    call clear_player
               je box_left
               jmp game_loop
 
-box_left:     call clear_box
-              xor word [map + bx], cx
-              shl ch, 1
+box_left:     shl ch, 1
               pusha
-              and cx, word [map + bx]   ; hit anoter box
+              and cx, ax
               cmp ch, 0
               jne move_right
               popa
               shr cx, 8
-              and cl, byte [map + bx]
+              and cl, al
               cmp cl, 0
               jne move_right
               call clear_box
               shl cx, 1
-              or word [map + bx], cx
+              jmp draw_box
               jmp game_loop
 
 
-move_right:   call clear_player
-              shr byte [player_col], 1
+move_right:   shr byte [player_col], 1
               call set_player
               call collision
               cmp cl, 1
@@ -128,22 +117,19 @@ move_right:   call clear_player
               je box_right
               jmp game_loop
 
-box_right:    call clear_box
-              xor word [map + bx], cx
-              shr ch, 1
+box_right:    shr ch, 1
               pusha
-              and cx, word [map + bx]   ; hit anoter box
+              and cx, ax                ; hit anoter box
               cmp ch, 0
               jne move_left
               popa
               shr cx, 8
-              and cl, byte [map + bx]
+              and cl, al
               cmp cl, 0
               jne move_left
               call clear_box
               shr cx, 1
-              or word [map + bx], cx
-              jmp game_loop
+              jmp draw_box
 
 clear_player: mov bl, byte [player_row]
               and byte [player + bx], 0x00
@@ -155,17 +141,17 @@ set_player:   mov bl, byte [player_row]
               ret
 clear_box:    call set_player
               shl cx, 8
-              xor word [map + bx], cx
+              xor word [si + bx], cx
               ret
 
 
 collision:    mov ch, byte [player_col]
-              and ch, byte [map + bx]
+              and ch, byte [si + bx]
               cmp ch, 0
               jne hit_wall
               mov cl, 0
               mov ch, byte [player_col]
-              and cx, word [map + bx]
+              and cx, word [si + bx]
               cmp ch, 0
               jne hit_box
               mov dl, 0
@@ -173,12 +159,16 @@ collision:    mov ch, byte [player_col]
 hit_wall:     mov cl, 1
               ret
 hit_box:      mov dl, 1
+              call clear_box
+              xor word [si + bx], cx
+              mov ax, word [si + bx]
               ret
 
 ;=========================================================================================================
 ;                                               PRINT MAP
 ;=========================================================================================================
-print_map:              add di, 0x90                      ; point DI to next row
+print_map:              mov di, 0x04b8                    ; point DI to one row below the board
+print_row:              add di, 0x90                      ; point DI to next row
                         lodsw                             ; load next row to AX (AH=box, AL=wall)
                         cmp al, 0xee                      ; are there no more rows left?
                         je done_print                     ; if so printing is done
@@ -201,21 +191,22 @@ next_tile:              pop ax                            ; restore current row 
                         shr dh, 1                         ; shift detection bit to the next tile
                         inc cl                            ; increment tile counter
                         cmp cl, 8                         ; if no more tiles left in the row
-                        je print_map                      ; go to next row
+                        je print_row                      ; go to next row
                         jmp print_tile                    ; otherwise print next tile in the row
 done_print:             ret                               ; return from procedure
-draw_tile:              cmp word [es:di], 0x0c09          ; box occupies it's destination tile
-                        je highlight_box                  ; if so then highlight it
+draw_tile:              ;cmp word [es:di], 0x0c09          ; box occupies it's destination tile
+                        ;je highlight_box                  ; if so then highlight it
                         mov ax, word [graphics + bx]      ; pick up tile graphics
                         stosw                             ; draw tile
                         jmp next_tile                     ; continue print routine
-highlight_box:          mov ax, 0x02fe                    ; pick up highlight graphics
-                        stosw                             ; highlight box
-                        jmp next_tile                     ; continue print routine
+highlight_box:          ;mov ax, 0x02fe                    ; pick up highlight graphics
+                        ;stosw                             ; highlight box
+                        ;jmp next_tile                     ; continue print routine
 ;=========================================================================================================
 ;                                              CLEAR SCREEN
 ;=========================================================================================================
-clear_screen:           mov bx, 0xb800                    ; point BX to video memory
+clear_screen:           xor di, di                        ; point DI to top left on screen
+                        mov bx, 0xb800                    ; point BX to video memory
                         mov es, bx                        ; point ES to video memory
 clear_next_byte:        mov ax, 0x0000                    ; zero word to clear chars and attrs        
                         stosw                             ; erase cell in video memory (clear screen)
