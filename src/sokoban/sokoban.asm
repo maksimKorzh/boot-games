@@ -5,14 +5,15 @@
 ;=========================================================================================================
 game_loop:              call clear_screen                 ; clear video memory
                         mov si, player                    ; point SI to player array
-                        mov word [low_byte], 0x0004       ; set low byte to box destination graphics index
-                        mov word [high_byte], 0x0006      ; set high byte to player grphics index
+                        mov byte [low_byte], 0x04       ; set low byte to box destination graphics index
+                        mov byte [high_byte], 0x06      ; set high byte to player grphics index
                         call print_map                    ; print box destination tiles and player
                         mov si, map                       ; point SI to map array
-                        mov word [low_byte], 0x0000       ; set low byte to box graphics index
-                        mov word [high_byte], 0x0002      ; set high byte to wall graphics index
+                        mov byte [low_byte], 0x00       ; set low byte to box graphics index
+                        mov byte [high_byte], 0x02      ; set high byte to wall graphics index
                         call print_map                    ; print boxex and walls
                         mov si, map
+                        mov di, player
                         xor bx, bx
                         
                         mov ah, 0x00                      ; BIOS code to get a keystroke
@@ -29,7 +30,7 @@ game_loop:              call clear_screen                 ; clear video memory
 
 draw_box:               
 
-or word [map + bx], cx
+                        or word [si + bx], cx
                         jmp game_loop                     ; repeat game loop
 ;=========================================================================================================
 ;                                               CONTROLS
@@ -51,7 +52,7 @@ box_up:       sub bx, 2
               jne move_down
               popa
               shr cx, 8
-              and cl, byte [map + bx]
+              and cl, byte [si + bx]
               cmp cl, 0
               jne move_down
               call clear_box
@@ -132,12 +133,12 @@ box_right:    shr ch, 1
               jmp draw_box
 
 clear_player: mov bl, byte [player_row]
-              and byte [player + bx], 0x00
+              and byte [di + bx], 0x00
               ret
 
 set_player:   mov bl, byte [player_row]
               mov cl, byte [player_col]
-              or byte [player + bx], cl
+              or byte [di + bx], cl
               ret
 clear_box:    call set_player
               shl cx, 8
@@ -185,7 +186,6 @@ print_tile:             push ax                           ; preserve current row
                         and dl, ah                        ; detect box/destination on the map
                         cmp dl, 0                         ; found one?
                         jne draw_tile                     ; if so then print it
-                        mov bx, word [high_byte]          ; draw graphics for high byte next
                         add di, 2                         ; print nothing but skip empty tile
 next_tile:              pop ax                            ; restore current row map/player
                         shr dh, 1                         ; shift detection bit to the next tile
@@ -194,21 +194,21 @@ next_tile:              pop ax                            ; restore current row 
                         je print_row                      ; go to next row
                         jmp print_tile                    ; otherwise print next tile in the row
 done_print:             ret                               ; return from procedure
-draw_tile:              ;cmp word [es:di], 0x0c09          ; box occupies it's destination tile
-                        ;je highlight_box                  ; if so then highlight it
+draw_tile:              cmp word [es:di], 0x0c09          ; box occupies it's destination tile
+                        je highlight_box                  ; if so then highlight it
                         mov ax, word [graphics + bx]      ; pick up tile graphics
                         stosw                             ; draw tile
                         jmp next_tile                     ; continue print routine
-highlight_box:          ;mov ax, 0x02fe                    ; pick up highlight graphics
-                        ;stosw                             ; highlight box
-                        ;jmp next_tile                     ; continue print routine
+highlight_box:          mov ax, 0x02fe                    ; pick up highlight graphics
+                        stosw                             ; highlight box
+                        jmp next_tile                     ; continue print routine
 ;=========================================================================================================
 ;                                              CLEAR SCREEN
 ;=========================================================================================================
 clear_screen:           xor di, di                        ; point DI to top left on screen
                         mov bx, 0xb800                    ; point BX to video memory
                         mov es, bx                        ; point ES to video memory
-clear_next_byte:        mov ax, 0x0000                    ; zero word to clear chars and attrs        
+clear_next_byte:        mov ah, 0x00                      ; zero word to clear chars and attrs        
                         stosw                             ; erase cell in video memory (clear screen)
                         cmp di, 0x0fa0                    ; visidhe screen has been exhausted?
                         je done_clear                     ; if so then return
@@ -234,7 +234,7 @@ map:                    dw 0x003e                         ; boxes: 00000000    w
                         dw 0x5c81                         ;        01011100           10000001
                         dw 0x0081                         ;        00000000           10000001
                         dw 0x00ff                         ;        00000000           11111111
-                        dw 0x00ee                         ; end of map array marker
+                        db 0xee                           ; end of map array marker
 player:                 dw 0x0000                         ; dest:  00000000   player: 00000000
                         dw 0x0000                         ;        00000000           00000000
                         dw 0x4020                         ;        01000000           00100000
@@ -244,8 +244,7 @@ player:                 dw 0x0000                         ; dest:  00000000   pl
                         dw 0x1200                         ;        00010010           00000000
                         dw 0x0800                         ;        00001000           00000000
                         dw 0x0000                         ;        00000000           00000000
-                        dw 0x00ee                         ; end of player array marker
-direction:              db 0x00                           ; 0001 - up, 0010 - down, 0100 - left, 1000 - right
+                        db 0xee                           ; end of player array marker
 ;=========================================================================================================
 ;                                            BYTES PADDING
 ;=========================================================================================================

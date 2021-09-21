@@ -86,36 +86,36 @@ move_right:   call clear_player
               je box_right
               jmp game_loop
 
-box_up:       call clear_box
-              xor byte [box + bx], cl
-              sub bx, 2
+box_up:       ;call clear_box
+              ;xor byte [box + bx], cl
+              ;sub bx, 2
               ;pusha
-              and cl, byte [box + bx]
-              cmp cl, 0
-              jne move_down
-              popa
-              and cl, byte [map + bx]
-              cmp cl, 0
-              jne move_down
+              ;and cl, byte [box + bx]
+              ;cmp cl, 0
+              ;jne move_down
+              ;popa
+              ;and cl, byte [map + bx]
+              ;cmp cl, 0
+              ;jne move_down
 
-              call clear_box
-              sub bx, 2
-              or byte [box + bx], cl
-              jmp game_loop
+              ;call clear_box
+              ;sub bx, 2
+              ;or byte [box + bx], cl
+              ;jmp game_loop
 
 box_down:
               ; 28 byte (x4 160)
-              call clear_box
-              xor byte [box + bx], cl
-              add bx, 2
-              pusha
-              and cl, byte [box + bx]
-              cmp cl, 0
-              jne move_up
-              popa
-              and cl, byte [map + bx]
-              cmp cl, 0
-              jne move_up
+              ;call clear_box
+              ;xor byte [box + bx], cl
+              ;add bx, 2
+              ;pusha
+              ;and cl, byte [box + bx]
+              ;cmp cl, 0
+              ;jne move_up
+              ;popa
+              ;and cl, byte [map + bx]
+              ;cmp cl, 0
+              ;jne move_up
 
               call clear_box
               add bx, 2
