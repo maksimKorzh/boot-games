@@ -1,3 +1,6 @@
+;=========================================================================================================
+;                             SOKOBANOS by Code Monkey King (bootable version)
+;=========================================================================================================
 [bits 16]                                                 ; assemble 16-bit code
 [org 0x7c00]                                              ; a number to calculate the address of variables
 ;=========================================================================================================
@@ -5,16 +8,16 @@
 ;=========================================================================================================
 game_loop:              call clear_screen                 ; clear video memory
                         mov si, player                    ; point SI to player array
-                        mov byte [low_byte], 0x04       ; set low byte to box destination graphics index
-                        mov byte [high_byte], 0x06      ; set high byte to player grphics index
+                        mov byte [low_byte], 0x04         ; set low byte to box destination graphics index
+                        mov byte [high_byte], 0x06        ; set high byte to player grphics index
                         call print_map                    ; print box destination tiles and player
                         mov si, map                       ; point SI to map array
-                        mov byte [low_byte], 0x00       ; set low byte to box graphics index
-                        mov byte [high_byte], 0x02      ; set high byte to wall graphics index
+                        mov byte [low_byte], 0x00         ; set low byte to box graphics index
+                        mov byte [high_byte], 0x02        ; set high byte to wall graphics index
                         call print_map                    ; print boxex and walls
-                        mov si, map
-                        mov di, player
-                        xor bx, bx
+                        mov si, map                       ; saves bytes during effective address lookup
+                        mov di, player                    ; saves bytes during effective address lookup
+                        xor bx, bx                        ; BX is a board row counter, reset it
                         mov ah, 0x00                      ; BIOS code to get a keystroke
                         int 0x16                          ; wait for keystroke from a user
                         cmp ah, 0x48                      ; on up arrow key pressed
@@ -25,156 +28,133 @@ game_loop:              call clear_screen                 ; clear video memory
                         je move_left                      ; move player to the left
                         cmp ah, 0x4d                      ; on right arrow key pressed
                         je move_right                     ; move player to the right
-                        jmp 0x800:0x0000                  ; exit to GameOS
-draw_box:               
-
-                        or word [si + bx], cx
-                        jmp game_loop                     ; repeat game loop
 ;=========================================================================================================
 ;                                               CONTROLS
 ;=========================================================================================================
-do:           
-call clear_player
-call set_player
-              call collision
-              ret
+move_up:                call clear_player                 ; extra clean up to avoid dehighlighting boxes
+                        sub byte [player_row], 0x02       ; decrease player Y offset row index by 2 bytes
+                        call clean_up                     ; clean up graphics
+                        cmp cl, 1                         ; if player hits the wall
+                        je move_down                      ; drop back to the initial position
+                        cmp dl, 1                         ; if player hits the box
+                        je box_up                         ; try to push box up
+                        jmp game_loop                     ; repeat game loop
+box_up:                 sub bx, 2                         ; decrease player Y offset row index by 2 bytes
+                        pusha                             ; preserve player X offset bit
+                        and cx, word [si + bx]            ; detect anoter box
+                        cmp ch, 0                         ; if a box hits a box
+                        jne move_down                     ; then drop player back to initial position
+                        popa                              ; restore player X offset bit
+                        shr cx, 8                         ; move player X offset bit from CH to CL
+                        and cl, byte [si + bx]            ; detect the wall
+                        cmp cl, 0                         ; if box hits a wall
+                        jne move_down                     ; then drop player back to initial position
+                        call clear_box                    ; otherwise clear box on initial position
+                        sub bx, 2                         ; calculate new place for it
+                        jmp draw_box                      ; and push it there
+move_down:              call clear_player                 ; extra clean up to avoid dehighlighting boxes
+                        add byte [player_row], 0x02       ; increase player Y offset row index by 2 bytes
+                        call clean_up                     ; clean up graphics
+                        cmp cl, 1                         ; if player hits the wall
+                        je move_up                        ; drop back to the initial position
+                        cmp dl, 1                         ; if player hits the box
+                        je box_down                       ; try to push box up
+                        jmp game_loop                     ; repeat game loop
+box_down:               add bx, 2                         ; increase player Y offset row index by 2 bytes
+                        pusha                             ; preserve player X offset bit
+                        and cx, word [si + bx]            ; detect anoter box
+                        cmp ch, 0                         ; if a box hits a box
+                        jne move_up                       ; then drop player back to initial position
+                        popa                              ; restore player X offset bit
+                        shr cx, 8                         ; move player X offset bit from CH to CL
+                        and cl, byte [si + bx]            ; detect the wall
+                        cmp cl, 0                         ; if box hits a wall
+                        jne move_up                       ; then drop player back to initial position
+                        call clear_box                    ; otherwise clear box on initial position
+                        add bx, 2                         ; calculate new place for it
+                        jmp draw_box                      ; and push it there
+move_left:              shl byte [player_col], 1          ; shift player X offset bit one position left
+                        call clean_up                     ; clean up graphics
+                        cmp cl, 1                         ; if player hits a wall
+                        je move_right                     ; then drop back to initial position
+                        cmp dl, 1                         ; if player hits a box
+                        je box_left                       ; then try to push it
+                        jmp game_loop                     ; repeat game loop
+box_left:               shl ch, 1                         ; shift player X offset bit one position left
+                        pusha                             ; preserve player X offset bit
+                        and cx, ax                        ; detect anoter box
+                        cmp ch, 0                         ; if a box hits a box
+                        jne move_right                    ; then drop player back to initial position
+                        popa                              ; restore player X offset bit position
+                        shr cx, 8                         ; move player X offset bit from CH to CL
+                        and cl, al                        ; detect the wall
+                        cmp cl, 0                         ; if box hits a wall
+                        jne move_right                    ; then drop player back to initial position
+                        call clear_box                    ; otherwise clear box on initial position
+                        shl cx, 1                         ; calculate new place for it
+                        jmp draw_box                      ; and push it there
+move_right:             shr byte [player_col], 1          ; shift player X offset bit one position right
+                        call clean_up                     ; clean up graphics
+                        cmp cl, 1                         ; if player hits a wall
+                        je move_left                      ; then drop back to initial position
+                        cmp dl, 1                         ; if player hits a box
+                        je box_right                      ; then try to push it
+                        jmp game_loop                     ; repeat game loop
 
-move_up:      
-call clear_player
-sub byte [player_row], 0x02
-              call do
-              ;call set_player
-              ;call collision
-              cmp cl, 1
-              je move_down
-              cmp dl, 1
-              je box_up
-              jmp game_loop
-
-box_up:       sub bx, 2
-              pusha
-              and cx, word [si + bx]   ; hit anoter box
-              cmp ch, 0
-              jne move_down
-              popa
-              shr cx, 8
-              and cl, byte [si + bx]
-              cmp cl, 0
-              jne move_down
-              call clear_box
-              sub bx, 2
-              jmp draw_box
-
-
-move_down:    
-call clear_player
-add byte [player_row], 0x02
-              call do
-              ;call set_player
-              ;call collision
-              cmp cl, 1
-              je move_up
-              cmp dl, 1
-              je box_down
-              jmp game_loop
-
-box_down:     add bx, 2
-              pusha
-              and cx, word [si + bx]   ; hit anoter box
-              cmp ch, 0
-              jne move_up
-              popa
-              shr cx, 8
-              and cl, byte [si + bx]
-              cmp cl, 0
-              jne move_up
-              call clear_box
-              add bx, 2
-              jmp draw_box
-
-
-move_left:    shl byte [player_col], 1
-              call do
-              ;call set_player
-              ;call collision
-              cmp cl, 1
-              je move_right
-              cmp dl, 1
-              je box_left
-              jmp game_loop
-
-box_left:     shl ch, 1
-              pusha
-              and cx, ax
-              cmp ch, 0
-              jne move_right
-              popa
-              shr cx, 8
-              and cl, al
-              cmp cl, 0
-              jne move_right
-              call clear_box
-              shl cx, 1
-              jmp draw_box
-
-
-move_right:   shr byte [player_col], 1
-              call do
-              ;call set_player
-              ;call collision
-              cmp cl, 1
-              je move_left
-              cmp dl, 1
-              je box_right
-              jmp game_loop
-
-box_right:    shr ch, 1
-              pusha
-              and cx, ax                ; hit anoter box
-              cmp ch, 0
-              jne move_left
-              popa
-              shr cx, 8
-              and cl, al
-              cmp cl, 0
-              jne move_left
-              call clear_box
-              shr cx, 1
-              jmp draw_box
-
-clear_player: mov bl, byte [player_row]
-              and byte [di + bx], 0x00
-              ret
-
-set_player:   mov bl, byte [player_row]
-              mov cl, byte [player_col]
-              or byte [di + bx], cl
-              ret
-clear_box:    call set_player
-              shl cx, 8
-              xor word [si + bx], cx
-              ret
-
-
-collision:    mov ch, byte [player_col]
-              and ch, byte [si + bx]
-              cmp ch, 0
-              jne hit_wall
-              mov cl, 0
-              mov ch, byte [player_col]
-              and cx, word [si + bx]
-              cmp ch, 0
-              jne hit_box
-              mov dl, 0
-              ret
-hit_wall:     mov cl, 1
-              ret
-hit_box:      mov dl, 1
-              call clear_box
-              xor word [si + bx], cx
-              mov ax, word [si + bx]
-              ret
-
+box_right:              shr ch, 1                         ; shift player X offset bit one position right
+                        pusha                             ; preserve player X offset bit
+                        and cx, ax                        ; detect anoter box
+                        cmp ch, 0                         ; if a box hits a box
+                        jne move_left                     ; then drop player back to initial position
+                        popa                              ; restore player X offset bit position
+                        shr cx, 8                         ; move player X offset bit from CH to CL
+                        and cl, al                        ; detect the wall
+                        cmp cl, 0                         ; if box hits a wall
+                        jne move_left                     ; then drop player back to initial position
+                        call clear_box                    ; otherwise clear box on initial position
+                        shr cx, 1                         ; calculate new place for it
+                        jmp draw_box                      ; and push it there
+;=========================================================================================================
+;                                         RENDER DYNAMIC ELEMENTS
+;=========================================================================================================
+clean_up:               call clear_player                 ; erase player
+                        call set_player                   ; draw player
+                        call collision                    ; detect collisions
+                        ret                               ; return from procedure
+clear_player:           mov bl, byte [player_row]         ; init player Y offset row
+                        and byte [di + bx], 0x00          ; erase player
+                        ret                               ; return from procedure
+set_player:             mov bl, byte [player_row]         ; init player Y offset row
+                        mov cl, byte [player_col]         ; init player X offset bit
+                        or byte [di + bx], cl             ; draw player
+                        ret                               ; return from procedure
+clear_box:              call set_player                   ; draw player
+                        shl cx, 8                         ; move player X offset from CL to CH
+                        xor word [si + bx], cx            ; clear box
+                        ret                               ; return from procedure
+draw_box:               or word [si + bx], cx             ; draw moved box
+                        jmp game_loop                     ; repeat game loop
+;=========================================================================================================
+;                                           COLLISION DETECTION
+;=========================================================================================================
+collision:              mov ch, byte [player_col]         ; init player X offset to detect a wall
+                        and ch, byte [si + bx]            ; detect a wall
+                        cmp ch, 0                         ; if player is standing on the wall square
+                        jne hit_wall                      ; then we hit a wall
+                        mov cl, 0                         ; clean up CX's lower bit for later bitwise AND
+                        mov ch, byte [player_col]         ; init player X offset to detect a box
+                        and cx, word [si + bx]            ; detect a box
+                        cmp ch, 0                         ; if player is standing on the box square
+                        jne hit_box                       ; then we hit the box
+                        mov dl, 0                         ; reset hit the box flag
+                        ret                               ; return from the procedure
+hit_wall:               mov cl, 1                         ; CL flags that we hit a wall
+                        ret                               ; return from the procedure
+hit_box:                mov dl, 1                         ; DL flags that we hit a box
+                        ;call clear_box                   ; use the side effect of initializing player row
+                        ;xor word [si + bx], cx           ; restore box, reduce main effect of clear_box
+                        mov ax, word [si + bx]            ; preserve player row on the board
+                        ret                               ; return from procedure
 ;=========================================================================================================
 ;                                               PRINT MAP
 ;=========================================================================================================
@@ -228,7 +208,7 @@ done_clear:             ret                               ; retyrn from procedur
 ;                                               GAME DATA
 ;=========================================================================================================
 graphics:               dw 0x06fe                         ; box tile
-                        dw 0x01b2                         ; wall tile
+                        dw 0xe1b2                         ; wall tile
                         dw 0x0c09                         ; box destination tile
                         dw 0x0e01                         ; player tile
 low_byte:               dw 0x00                           ; low byte graphics index (wall/player)
@@ -258,9 +238,9 @@ player:                 dw 0x0000                         ; dest:  00000000   pl
 ;=========================================================================================================
 ;                                            BYTES PADDING
 ;=========================================================================================================
-times 512 - ($-$$)      db 0                              ; boot sector padding
-                        ;dw 0xaa55                         ; BIOS boot signature
-;times 1474560 - ($-$$)  db 0                              ; floppy image padding
+times 510 - ($-$$)      db 0                              ; boot sector padding
+                        dw 0xaa55                         ; BIOS boot signature
+times 1474560 - ($-$$)  db 0                              ; floppy image padding
 
 
 
