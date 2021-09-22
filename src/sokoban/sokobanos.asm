@@ -6,7 +6,7 @@
 ;=========================================================================================================
 ;                                               MAIN LOOP
 ;=========================================================================================================
-strt:                   xor ax, ax                        ; reset AX
+start:                  xor ax, ax                        ; reset AX
                         mov ds, ax                        ; hook up variable addresses
 game_loop:              call clear_screen                 ; clear video memory
                         mov si, player                    ; point SI to player array

@@ -28,7 +28,7 @@ game_loop:              call clear_screen                 ; clear video memory
                         je move_left                      ; move player to the left
                         cmp ah, 0x4d                      ; on right arrow key pressed
                         je move_right                     ; move player to the right
-                        jmp 0x800:0x0000
+                        jmp 0x800:0x0000                  ; jump back to GameOS shell
                         jmp game_loop                     ; repeat game loop
 ;=========================================================================================================
 ;                                               CONTROLS
