@@ -15,10 +15,8 @@ game_loop:              call clear_screen                 ; clear video memory
                         mov si, map
                         mov di, player
                         xor bx, bx
-                        
                         mov ah, 0x00                      ; BIOS code to get a keystroke
                         int 0x16                          ; wait for keystroke from a user
-                        call clear_player
                         cmp ah, 0x48                      ; on up arrow key pressed
                         je move_up                        ; move player up
                         cmp ah, 0x50                      ; on down arrow key pressed
@@ -27,7 +25,7 @@ game_loop:              call clear_screen                 ; clear video memory
                         je move_left                      ; move player to the left
                         cmp ah, 0x4d                      ; on right arrow key pressed
                         je move_right                     ; move player to the right
-
+                        jmp 0x800:0x0000                  ; exit to GameOS
 draw_box:               
 
                         or word [si + bx], cx
@@ -35,10 +33,18 @@ draw_box:
 ;=========================================================================================================
 ;                                               CONTROLS
 ;=========================================================================================================
-
-move_up:      sub byte [player_row], 0x02
-              call set_player
+do:           
+call clear_player
+call set_player
               call collision
+              ret
+
+move_up:      
+call clear_player
+sub byte [player_row], 0x02
+              call do
+              ;call set_player
+              ;call collision
               cmp cl, 1
               je move_down
               cmp dl, 1
@@ -60,9 +66,12 @@ box_up:       sub bx, 2
               jmp draw_box
 
 
-move_down:    add byte [player_row], 0x02
-              call set_player
-              call collision
+move_down:    
+call clear_player
+add byte [player_row], 0x02
+              call do
+              ;call set_player
+              ;call collision
               cmp cl, 1
               je move_up
               cmp dl, 1
@@ -85,8 +94,9 @@ box_down:     add bx, 2
 
 
 move_left:    shl byte [player_col], 1
-              call set_player
-              call collision
+              call do
+              ;call set_player
+              ;call collision
               cmp cl, 1
               je move_right
               cmp dl, 1
@@ -106,12 +116,12 @@ box_left:     shl ch, 1
               call clear_box
               shl cx, 1
               jmp draw_box
-              jmp game_loop
 
 
 move_right:   shr byte [player_col], 1
-              call set_player
-              call collision
+              call do
+              ;call set_player
+              ;call collision
               cmp cl, 1
               je move_left
               cmp dl, 1
@@ -194,7 +204,7 @@ next_tile:              pop ax                            ; restore current row 
                         je print_row                      ; go to next row
                         jmp print_tile                    ; otherwise print next tile in the row
 done_print:             ret                               ; return from procedure
-draw_tile:              cmp word [es:di], 0x0c09          ; box occupies it's destination tile
+draw_tile:              cmp byte [es:di], 0x09            ; box occupies it's destination tile
                         je highlight_box                  ; if so then highlight it
                         mov ax, word [graphics + bx]      ; pick up tile graphics
                         stosw                             ; draw tile
@@ -218,7 +228,7 @@ done_clear:             ret                               ; retyrn from procedur
 ;                                               GAME DATA
 ;=========================================================================================================
 graphics:               dw 0x06fe                         ; box tile
-                        dw 0xe1b2                         ; wall tile
+                        dw 0x01b2                         ; wall tile
                         dw 0x0c09                         ; box destination tile
                         dw 0x0e01                         ; player tile
 low_byte:               dw 0x00                           ; low byte graphics index (wall/player)
@@ -248,9 +258,9 @@ player:                 dw 0x0000                         ; dest:  00000000   pl
 ;=========================================================================================================
 ;                                            BYTES PADDING
 ;=========================================================================================================
-times 510 - ($-$$)      db 0                              ; boot sector padding
-                        dw 0xaa55                         ; BIOS boot signature
-times 1474560 - ($-$$)  db 0                              ; floppy image padding
+times 512 - ($-$$)      db 0                              ; boot sector padding
+                        ;dw 0xaa55                         ; BIOS boot signature
+;times 1474560 - ($-$$)  db 0                              ; floppy image padding
 
 
 
