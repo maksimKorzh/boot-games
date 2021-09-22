@@ -2,7 +2,7 @@
 ;                             SOKOBANOS by Code Monkey King (bootable version)
 ;=========================================================================================================
 [bits 16]                                                 ; assemble 16-bit code
-[org 0x7c00]                                              ; a number to calculate the address of variables
+[org 0x7c00]                                              ; variables adress offset
 ;=========================================================================================================
 ;                                               MAIN LOOP
 ;=========================================================================================================
@@ -10,7 +10,7 @@ game_loop:              call clear_screen                 ; clear video memory
                         mov si, player                    ; point SI to player array
                         mov byte [low_byte], 0x04         ; set low byte to box destination graphics index
                         mov byte [high_byte], 0x06        ; set high byte to player grphics index
-                        call print_map                    ; print box destination tiles and player
+                        call print_map                    ; print box destination tiles and player 
                         mov si, map                       ; point SI to map array
                         mov byte [low_byte], 0x00         ; set low byte to box graphics index
                         mov byte [high_byte], 0x02        ; set high byte to wall graphics index
@@ -208,7 +208,7 @@ done_clear:             ret                               ; retyrn from procedur
 ;                                               GAME DATA
 ;=========================================================================================================
 graphics:               dw 0x06fe                         ; box tile
-                        dw 0xe1b2                         ; wall tile
+                        dw 0x71b2                         ; wall tile
                         dw 0x0c09                         ; box destination tile
                         dw 0x0e01                         ; player tile
 low_byte:               dw 0x00                           ; low byte graphics index (wall/player)
