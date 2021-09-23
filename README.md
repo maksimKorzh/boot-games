@@ -1,7 +1,7 @@
 # boot-games
 A collection of my boot sector games
 
-# SokobanOS & the boot sector game development kungfu
+# SokobanOS: boot sector game development kungfu)
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/6h5QM_bwBhs/0.jpg)](https://www.youtube.com/watch?v=6h5QM_bwBhs)
 
 # Run in emulator
